@@ -106,6 +106,21 @@
         .top    { transform: rotateX(90deg) translateZ(40px); }
         .bottom { transform: rotateX(-90deg) translateZ(40px); }
 
+        .new-year-timer {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #00ff15;
+            text-shadow: 0 0 10px #00ff15;
+            text-align: center;
+        }
+
+        .new-year-label {
+            font-size: 0.8em;
+            color: #00ff99;
+            margin-bottom: 5px;
+            text-shadow: 0 0 5px #00ff99;
+        }
+
         .bubble {
             position: absolute;
             border-radius: 50%;
@@ -197,6 +212,10 @@
     <div class="clock-container" id="clockContainer">
         <div class="digit-group" id="dateGroup"></div>
         <div class="digit-group" id="timeGroup"></div>
+        <div class="new-year-timer">
+            <div class="new-year-label">До Нового Года:</div>
+            <div id="countdown">00:00:00</div>
+        </div>
     </div>
 
     <script>
@@ -279,6 +298,28 @@
             clockContainer.style.transform = `translate(-50%, -50%) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
         }
 
+        function updateCountdown() {
+            const now = new Date();
+            const nextYear = now.getFullYear() + 1;
+            const newYear = new Date(nextYear, 0, 1, 0, 0, 0);
+            const diff = newYear - now;
+            
+            if (diff <= 0) {
+                document.getElementById('countdown').textContent = '00:00:00';
+                return;
+            }
+            
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            // Форматируем с учетом до 4 символов в часах (на случай если останется 1000+ часов)
+            const formattedHours = String(hours).padStart(Math.min(4, String(hours).length), '0');
+            const formattedTime = `${formattedHours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            document.getElementById('countdown').textContent = formattedTime;
+        }
+
         let previousTime = '';
         let previousDate = '';
 
@@ -302,6 +343,7 @@
             updateTimeDisplay(currentTime, previousTime);
             previousTime = currentTime;
 
+            updateCountdown();
             checkNewYear(now);
         }
 
