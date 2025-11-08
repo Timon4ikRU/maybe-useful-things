@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maybe Useful Things</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,wght@0,400;0,700;1,400&family=Google+Sans+Code:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Google Sans Code', monospace;
+            background: linear-gradient(to bottom, #000000 0%, #003300 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff00;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            z-index: 10;
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Google Sans Code', monospace;
+            font-size: 3.5rem;
+            margin-bottom: 2rem;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+            animation: glitch 3s infinite;
+        }
+
+        .btn {
+            font-family: 'Google Sans Code', monospace;
+            background: transparent;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            text-decoration: none;
+            border-radius: 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        .btn:hover {
+            background: #00ff00;
+            color: #000000;
+            box-shadow: 0 0 20px #00ff00, 0 0 30px #00ff00;
+        }
+
+        @keyframes glitch {
+            0%, 100% {
+                transform: translate(0);
+            }
+            25% {
+                transform: translate(-1px, 1px);
+            }
+            50% {
+                transform: translate(1px, -1px);
+            }
+            75% {
+                transform: translate(-1px, -1px);
+            }
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh);
+                opacity: 0;
+            }
+        }
+
+        .falling-char {
+            position: absolute;
+            font-family: 'Google Sans Code', monospace;
+            font-size: 16px;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            z-index: 2;
+            animation: fall linear forwards;
+            font-weight: bold;
+        }
+
+        .char-trail {
+            position: absolute;
+            font-family: 'Google Sans Code', monospace;
+            font-size: 14px;
+            color: #00ff00;
+            opacity: 0;
+            text-shadow: 0 0 5px #00ff00;
+            z-index: 1;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Maybe Useful Things</h1>
+        <a href="newyearclock.html" class="btn">Access New Year Clock</a>
+    </div>
+
+    <script>
+        const hexText = "4C6F676F766F56522F696E6465782E68746D6C";
+        const cellSize = 16;
+
+        function getCenteredGrid() {
+            const cols = Math.min(hexText.length, Math.floor(window.innerWidth / cellSize));
+            const startX = (window.innerWidth - (cols * cellSize)) / 2;
+            return { cols, startX };
+        }
+
+        function dropRandomChars() {
+            const { cols, startX } = getCenteredGrid();
+            const positions = [];
+            
+            for (let x = 0; x < cols; x++) {
+                positions.push(x);
+            }
+            
+            shuffleArray(positions);
+            
+            positions.forEach((colIndex, index) => {
+                setTimeout(() => {
+                    dropCharFromColumn(colIndex, startX, index * 300);
+                }, index * 400);
+            });
+        }
+
+        function dropCharFromColumn(colIndex, startX, delay) {
+            const char = hexText[colIndex];
+            const x = startX + colIndex * cellSize;
+            const startY = -cellSize;
+            
+            setTimeout(() => {
+                createFallingChar(char, x, startY, 0);
+            }, delay);
+        }
+
+        function createFallingChar(char, startX, startY, delay) {
+            const fallingChar = document.createElement('div');
+            fallingChar.className = 'falling-char';
+            fallingChar.textContent = char;
+            fallingChar.style.left = startX + 'px';
+            fallingChar.style.top = startY + 'px';
+            
+            const duration = 5000;
+            fallingChar.style.animationDuration = duration + 'ms';
+            fallingChar.style.animationDelay = delay + 'ms';
+            
+            fallingChar.style.opacity = '1';
+            
+            document.body.appendChild(fallingChar);
+            
+            createTrail(startX, startY, duration, delay);
+            
+            setTimeout(() => {
+                fallingChar.remove();
+            }, duration + delay);
+        }
+
+        function createTrail(startX, startY, duration, delay) {
+            const trailLength = 25;
+            
+            for (let i = 0; i < trailLength; i++) {
+                setTimeout(() => {
+                    const trailChar = document.createElement('div');
+                    trailChar.className = 'char-trail';
+                    trailChar.textContent = hexText[Math.floor(Math.random() * hexText.length)];
+                    trailChar.style.left = startX + 'px';
+                    trailChar.style.top = (startY + i * 14) + 'px';
+                    
+                    const progress = i / trailLength;
+                    const opacity = 0.8 * (1 - progress * 0.8);
+                    trailChar.style.opacity = opacity.toString();
+                    trailChar.style.color = `rgba(0, 255, 0, ${opacity})`;
+                    
+                    document.body.appendChild(trailChar);
+                    
+                    const trailInterval = setInterval(() => {
+                        trailChar.textContent = hexText[Math.floor(Math.random() * hexText.length)];
+                    }, 150);
+                    
+                    setTimeout(() => {
+                        clearInterval(trailInterval);
+                        trailChar.style.opacity = '0';
+                        setTimeout(() => {
+                            trailChar.remove();
+                        }, 300);
+                    }, duration - i * 100);
+                    
+                }, delay + i * 80);
+            }
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function init() {
+            setTimeout(dropRandomChars, 1000);
+            setInterval(dropRandomChars, 8000);
+        }
+
+        window.addEventListener('load', init);
+        window.addEventListener('resize', init);
+
+    </script>
+</body>
+</html>
