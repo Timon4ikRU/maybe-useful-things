@@ -121,6 +121,12 @@
             text-shadow: 0 0 5px #00ff99;
         }
 
+        .countdown-digits {
+            font-family: 'Google Sans Code', monospace;
+            font-size: 1.4em;
+            letter-spacing: 2px;
+        }
+
         .bubble {
             position: absolute;
             border-radius: 50%;
@@ -214,7 +220,7 @@
         <div class="digit-group" id="timeGroup"></div>
         <div class="new-year-timer">
             <div class="new-year-label">До Нового Года:</div>
-            <div id="countdown">00:00:00</div>
+            <div id="countdown" class="countdown-digits">00.00.00:00:00:00</div>
         </div>
     </div>
 
@@ -305,17 +311,25 @@
             const diff = newYear - now;
             
             if (diff <= 0) {
-                document.getElementById('countdown').textContent = '00:00:00';
+                document.getElementById('countdown').textContent = '00.00.00:00:00:00';
                 return;
             }
             
-            const hours = Math.floor(diff / (1000 * 60 * 60));
+            // Вычисляем месяцы, дни, часы, минуты, секунды
+            const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30));
+            const days = Math.floor((diff % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
             
-            // Форматируем с учетом до 4 символов в часах (на случай если останется 1000+ часов)
-            const formattedHours = String(hours).padStart(Math.min(4, String(hours).length), '0');
-            const formattedTime = `${formattedHours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            // Форматируем в формат мес.дд.чч:мм:сс
+            const formattedMonths = String(months).padStart(2, '0');
+            const formattedDays = String(days).padStart(2, '0');
+            const formattedHours = String(hours).padStart(2, '0');
+            const formattedMinutes = String(minutes).padStart(2, '0');
+            const formattedSeconds = String(seconds).padStart(2, '0');
+            
+            const formattedTime = `${formattedMonths}.${formattedDays}.${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
             
             document.getElementById('countdown').textContent = formattedTime;
         }
@@ -426,7 +440,6 @@
             const bubble = document.createElement('div');
             bubble.className = 'bubble';
             
-            // МАЛЕНЬКИЕ КРУЖКИ 3-8px
             const size = Math.random() * 5 + 3;
             const color = colors[Math.floor(Math.random() * colors.length)];
             
