@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Year Clock</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(to bottom, #0a0a36, #1c1c41, #040469);
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            cursor: default;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle linear infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .clock-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            z-index: 10;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .digit-group {
+            display: flex;
+            gap: 10px;
+            transform-style: preserve-3d;
+        }
+
+        .separator {
+            width: 30px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5em;
+            font-weight: bold;
+            color: rgb(0, 255, 21);
+            text-shadow: 0 0 15px rgb(0, 255, 21);
+        }
+
+        .digit-cube {
+            width: 80px;
+            height: 80px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s ease;
+        }
+
+        .cube-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(145deg, #1a1a1a, #000000);
+            border: 3px solid rgba(0, 255, 42, 0.7);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.8em;
+            font-weight: bold;
+            backface-visibility: hidden;
+            color: rgb(0, 255, 0);
+            text-shadow: 0 0 15px rgba(72, 255, 0, 0.671), 0 0 30px rgba(0, 255, 0, 0.322);
+            box-shadow: 0 0 20px rgba(0, 255, 55, 0.3);
+        }
+
+        .front  { transform: translateZ(40px); }
+        .back   { transform: rotateY(180deg) translateZ(40px); }
+        .right  { transform: rotateY(90deg) translateZ(40px); }
+        .left   { transform: rotateY(-90deg) translateZ(40px); }
+        .top    { transform: rotateX(90deg) translateZ(40px); }
+        .bottom { transform: rotateX(-90deg) translateZ(40px); }
+
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, 
+                rgba(83, 224, 142, 0.9), 
+                rgba(255, 100, 100, 0.7), 
+                rgba(14, 168, 14, 0.705),
+                rgba(100, 100, 255, 0.5));
+            animation: move linear infinite;
+            filter: blur(0.5px);
+            z-index: 2;
+        }
+
+        .firework {
+            position: absolute;
+            bottom: -50px;
+            width: 4px;
+            height: 15px;
+            border-radius: 2px;
+            z-index: 5;
+            background: linear-gradient(to top, transparent, #fff);
+            box-shadow: 0 0 8px #fff;
+            animation: fireworkRise 2s ease-out forwards;
+        }
+
+        .spark {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+            animation: sparkFall linear forwards;
+            z-index: 4;
+            box-shadow: 0 0 3px currentColor;
+        }
+
+        @keyframes move {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+            25% {
+                transform: translate(var(--moveX1), var(--moveY1)) rotate(90deg);
+            }
+            50% {
+                transform: translate(var(--moveX2), var(--moveY2)) rotate(180deg);
+            }
+            75% {
+                transform: translate(var(--moveX3), var(--moveY3)) rotate(270deg);
+            }
+            100% {
+                transform: translate(var(--moveX4), var(--moveY4)) rotate(360deg);
+            }
+        }
+
+        @keyframes fireworkRise {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(var(--targetY));
+                opacity: 1;
+            }
+        }
+
+        @keyframes sparkFall {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--sparkX), var(--sparkY)) scale(0);
+                opacity: 0;
+            }
+        }
+
+        @keyframes rotateRandom {
+            0% {
+                transform: rotateX(0) rotateY(0) rotateZ(0);
+            }
+            100% {
+                transform: rotateX(var(--rotX)) rotateY(var(--rotY)) rotateZ(var(--rotZ));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+
+    <div class="clock-container" id="clockContainer">
+        <div class="digit-group" id="dateGroup"></div>
+        <div class="digit-group" id="timeGroup"></div>
+    </div>
+
+    <script>
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            const starCount = 200;
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                
+                const size = Math.random() * 2 + 0.5;
+                const posX = Math.random() * 100;
+                const posY = Math.random() * 100;
+                const duration = Math.random() * 5 + 3;
+                const delay = Math.random() * 5;
+                
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.left = `${posX}vw`;
+                star.style.top = `${posY}vh`;
+                star.style.animationDuration = `${duration}s`;
+                star.style.animationDelay = `${delay}s`;
+                
+                starsContainer.appendChild(star);
+            }
+        }
+
+        function createDigitCube(digit) {
+            const cube = document.createElement('div');
+            cube.className = 'digit-cube';
+            cube.innerHTML = `
+                <div class="cube-face front">${digit}</div>
+                <div class="cube-face back">${getRandomDigit()}</div>
+                <div class="cube-face right">${getRandomDigit()}</div>
+                <div class="cube-face left">${getRandomDigit()}</div>
+                <div class="cube-face top">${getRandomDigit()}</div>
+                <div class="cube-face bottom">${getRandomDigit()}</div>
+            `;
+            return cube;
+        }
+
+        function getRandomDigit() {
+            return Math.floor(Math.random() * 10);
+        }
+
+        function rotateCube(cube) {
+            const rotations = [
+                { x: 360, y: 0, z: 0 },
+                { x: -360, y: 0, z: 0 },
+                { x: 0, y: 360, z: 0 },
+                { x: 0, y: -360, z: 0 },
+                { x: 180, y: 180, z: 0 },
+                { x: -180, y: -180, z: 0 }
+            ];
+            
+            const rotation = rotations[Math.floor(Math.random() * rotations.length)];
+            
+            cube.style.setProperty('--rotX', `${rotation.x}deg`);
+            cube.style.setProperty('--rotY', `${rotation.y}deg`);
+            cube.style.setProperty('--rotZ', `${rotation.z}deg`);
+            cube.style.animation = `rotateRandom 0.8s ease-in-out forwards`;
+            
+            setTimeout(() => {
+                cube.style.animation = '';
+            }, 800);
+        }
+
+        function handleMouseMove(event) {
+            const clockContainer = document.getElementById('clockContainer');
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            
+            const mouseX = event.clientX - centerX;
+            const mouseY = event.clientY - centerY;
+            
+            const rotateY = (mouseX / centerX) * 45;
+            const rotateX = -(mouseY / centerY) * 45;
+            
+            clockContainer.style.transform = `translate(-50%, -50%) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        }
+
+        let previousTime = '';
+        let previousDate = '';
+
+        function updateClock() {
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            const currentDate = `${day}.${month}.${year}`;
+            const currentTime = `${hours}:${minutes}:${seconds}`;
+
+            if (currentDate !== previousDate) {
+                updateDateDisplay(currentDate);
+                previousDate = currentDate;
+            }
+
+            updateTimeDisplay(currentTime, previousTime);
+            previousTime = currentTime;
+
+            checkNewYear(now);
+        }
+
+        function updateDateDisplay(date) {
+            const dateGroup = document.getElementById('dateGroup');
+            dateGroup.innerHTML = '';
+            
+            for (let i = 0; i < date.length; i++) {
+                const char = date[i];
+                if (char === '.') {
+                    const separator = document.createElement('div');
+                    separator.className = 'separator';
+                    separator.textContent = '.';
+                    dateGroup.appendChild(separator);
+                } else {
+                    const cube = createDigitCube(char);
+                    dateGroup.appendChild(cube);
+                }
+            }
+        }
+
+        function updateTimeDisplay(time, previousTime) {
+            const timeGroup = document.getElementById('timeGroup');
+            
+            if (!previousTime) {
+                timeGroup.innerHTML = '';
+                for (let i = 0; i < time.length; i++) {
+                    const char = time[i];
+                    if (char === ':') {
+                        const separator = document.createElement('div');
+                        separator.className = 'separator';
+                        separator.textContent = ':';
+                        timeGroup.appendChild(separator);
+                    } else {
+                        const cube = createDigitCube(char);
+                        timeGroup.appendChild(cube);
+                    }
+                }
+                return;
+            }
+
+            const cubes = timeGroup.querySelectorAll('.digit-cube');
+            let cubeIndex = 0;
+            
+            for (let i = 0; i < time.length; i++) {
+                const currentChar = time[i];
+                const previousChar = previousTime[i];
+                
+                if (currentChar !== previousChar && currentChar !== ':' && previousChar !== ':') {
+                    if (cubes[cubeIndex]) {
+                        cubes[cubeIndex].querySelector('.front').textContent = currentChar;
+                        rotateCube(cubes[cubeIndex]);
+                    }
+                }
+                
+                if (currentChar !== ':') {
+                    cubeIndex++;
+                }
+            }
+        }
+
+        function createBubbles() {
+            const colors = [
+                'rgba(255, 100, 100, 0.6)',
+                'rgba(100, 255, 100, 0.6)', 
+                'rgba(100, 100, 255, 0.6)',
+                'rgba(255, 255, 100, 0.6)',
+                'rgba(255, 100, 255, 0.6)',
+                'rgba(100, 255, 255, 0.6)'
+            ];
+            
+            for (let i = 0; i < 8; i++) {
+                setTimeout(() => {
+                    createBubble(colors);
+                }, i * 200);
+            }
+        }
+
+        function createBubble(colors) {
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            
+            // МАЛЕНЬКИЕ КРУЖКИ 3-8px
+            const size = Math.random() * 5 + 3;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            bubble.style.width = `${size}px`;
+            bubble.style.height = `${size}px`;
+            bubble.style.background = color;
+            bubble.style.left = `${Math.random() * 100}vw`;
+            bubble.style.top = `${Math.random() * 100}vh`;
+            
+            const moveX1 = (Math.random() - 0.5) * 100;
+            const moveY1 = (Math.random() - 0.5) * 100;
+            const moveX2 = moveX1 + (Math.random() - 0.5) * 80;
+            const moveY2 = moveY1 + (Math.random() - 0.5) * 80;
+            const moveX3 = moveX2 + (Math.random() - 0.5) * 60;
+            const moveY3 = moveY2 + (Math.random() - 0.5) * 60;
+            const moveX4 = moveX3 + (Math.random() - 0.5) * 40;
+            const moveY4 = moveY3 + (Math.random() - 0.5) * 40;
+            
+            const duration = Math.random() * 30 + 25;
+            
+            bubble.style.setProperty('--moveX1', `${moveX1}px`);
+            bubble.style.setProperty('--moveY1', `${moveY1}px`);
+            bubble.style.setProperty('--moveX2', `${moveX2}px`);
+            bubble.style.setProperty('--moveY2', `${moveY2}px`);
+            bubble.style.setProperty('--moveX3', `${moveX3}px`);
+            bubble.style.setProperty('--moveY3', `${moveY3}px`);
+            bubble.style.setProperty('--moveX4', `${moveX4}px`);
+            bubble.style.setProperty('--moveY4', `${moveY4}px`);
+            bubble.style.animationDuration = `${duration}s`;
+            
+            document.body.appendChild(bubble);
+            
+            setTimeout(() => {
+                if (bubble.parentNode) {
+                    bubble.parentNode.removeChild(bubble);
+                }
+            }, duration * 1000);
+        }
+
+        function goFirework() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500', '#ff69b4'];
+            
+            for (let i = 0; i < 6; i++) {
+                setTimeout(() => {
+                    launchFirework(colors);
+                }, i * 600);
+            }
+        }
+
+        function launchFirework(colors) {
+            const firework = document.createElement('div');
+            firework.className = 'firework';
+            
+            const startX = Math.random() * (window.innerWidth - 100) + 50;
+            const targetY = window.innerHeight * 0.75;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            firework.style.left = `${startX}px`;
+            firework.style.background = `linear-gradient(to top, transparent, ${color})`;
+            firework.style.boxShadow = `0 0 8px ${color}`;
+            firework.style.setProperty('--targetY', `-${targetY}px`);
+            
+            document.body.appendChild(firework);
+            
+            setTimeout(() => {
+                explodeFirework(startX, window.innerHeight - targetY, colors);
+                if (firework.parentNode) {
+                    firework.parentNode.removeChild(firework);
+                }
+            }, 2000);
+        }
+
+        function explodeFirework(x, y, colors) {
+            const sparkCount = 25;
+            
+            for (let i = 0; i < sparkCount; i++) {
+                const spark = document.createElement('div');
+                spark.className = 'spark';
+                
+                const angle = (i / sparkCount) * Math.PI * 2;
+                const distance = Math.random() * 80 + 40;
+                const sparkX = Math.cos(angle) * distance;
+                const sparkY = Math.sin(angle) * distance;
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                
+                spark.style.left = `${x}px`;
+                spark.style.top = `${y}px`;
+                spark.style.background = color;
+                spark.style.color = color;
+                spark.style.setProperty('--sparkX', `${sparkX}px`);
+                spark.style.setProperty('--sparkY', `${sparkY}px`);
+                spark.style.animationDuration = `${Math.random() * 2 + 1}s`;
+                
+                document.body.appendChild(spark);
+                
+                setTimeout(() => {
+                    if (spark.parentNode) {
+                        spark.parentNode.removeChild(spark);
+                    }
+                }, 3000);
+            }
+        }
+
+        function checkNewYear(now) {
+            const newYear = new Date(now.getFullYear() + 1, 0, 1);
+            const timeDiff = newYear - now;
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            
+            if (hoursDiff <= 24 && hoursDiff > 23.9) {
+                goFirework();
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            createStars();
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            
+            createBubbles();
+            setInterval(createBubbles, 8000);
+        });
+
+        window.goFirework = goFirework;
+    </script>
+</body>
+</html>
