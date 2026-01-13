@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Симулятор Админа</title>
+<style>
+*{box-sizing:border-box;touch-action:manipulation}body{margin:0;padding:0;background-color:#f0f0f0;font-family:Arial,sans-serif;overflow:hidden;position:fixed;width:100%;height:100%}#game-container{position:relative;width:100%;height:100%;max-width:600px;margin:0 auto}canvas{display:block;width:100%;height:100%;background-color:white}#ui{position:absolute;top:10px;left:10px;font-size:14px;background-color:rgba(255,255,255,0.7);padding:5px 10px;border-radius:5px}#stats{position:absolute;top:120px;left:10px;font-size:12px;background-color:rgba(255,255,255,0.7);padding:5px 10px;border-radius:5px}#controls{position:absolute;bottom:10px;width:100%;display:flex;justify-content:space-around;flex-wrap:wrap}.control-btn{width:22%;height:50px;margin:5px 0;border:none;border-radius:5px;font-size:16px;color:white;font-weight:bold}#bot-btn{position:absolute;top:50px;right:10px;width:80px;height:40px;background-color:#4CAF50;color:white;border:none;border-radius:5px;font-size:14px}#bot-timer{position:absolute;top:90px;right:10px;width:80px;height:3px;background-color:#ddd}#bot-active{position:absolute;top:90px;right:10px;width:0;height:3px;background-color:#4CAF50}.special{font-weight:bold}
+</style>
+</head>
+<body>
+<div id="game-container">
+<canvas id="game"></canvas>
+<div id="ui">Очки: <span id="score">0</span> | Время: <span id="time">60</span></div>
+<div id="stats">
+    Highscore: <span id="highscore">0</span><br>
+    Messages: <span id="messages">0</span>
+</div>
+<button id="bot-btn">Бот (15с)</button>
+<div id="bot-timer"><div id="bot-active"></div></div>
+<div id="controls">
+<button class="control-btn" style="background-color:#FF0000;" data-action="ban">Бан</button>
+<button class="control-btn" style="background-color:#FFA500;" data-action="warn">Варн</button>
+<button class="control-btn" style="background-color:#800080;" data-action="mute">Мут</button>
+<button class="control-btn" style="background-color:#C8C8C8;color:black;" data-action="ignore">Игнор</button>
+</div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const dpr = window.devicePixelRatio || 1;
+
+let score = 0;
+let time = 60;
+let active = true;
+let messages = [];
+let lastMsg = 0;
+let botActive = false;
+let botEndTime = 0;
+let botCooldownEnd = 0;
+let botInterval = null;
+let messagesProcessed = 0;
+let highscore = localStorage.getItem('highscore') || 0;
+
+const types = {
+    normal: {color: "#0000FF", action: null},
+    spam: {color: "#FF0000", action: "ban"},
+    offtop: {color: "#FFA500", action: "warn"},
+    flood: {color: "#800080", action: "mute"}
+};
+
+const users = [
+    "Pavl Dobryy Opposingforce",
+    "Артём Береговой",
+    "Святослав Зверев",
+    "Сергей Иванов",
+    "Сергей Варфоломеев",
+    "Виктор Войтенко",
+    "Максим Агапов",
+    "Глеб Рычков",
+    "Филипп Обухов",
+    "Валентина Юсупова",
+    "Антон Кузьмич",
+    "Pornchick Horny",
+    "Карен Керман-Гослингович",
+    "Grynt I",
+    "Сафия Главина",
+    "Виктор Ефанов"
+];
+
+function getMessage() {
+    const typeKeys = Object.keys(types);
+    const type = typeKeys[Math.floor(Math.random() * typeKeys.length)];
+    
+    if(Math.random() < 0.3) {
+        if(Math.random() < 0.5) {
+            return {
+                text: "Михаил Поляков: " + (type == "normal" ? "Здрасте" : type == "flood" ? "ЛОООЛ" : "У меня в 90-е своя группа была"),
+                type: type,
+                y: 50 + 400 * Math.random(),
+                speed: 1 + 2 * Math.random(),
+                isSpecial: true,
+                specialScore: 100,
+                user: "Михаил Поляков"
+            };
+        } else {
+            return {
+                text: "Апчихба Смачнодрист: Так, блэт, успокоились все!",
+                type: "normal",
+                y: 50 + 400 * Math.random(),
+                speed: 1 + 2 * Math.random(),
+                isSpecial: true,
+                specialScore: 500,
+                user: "Апчихба Смачнодрист"
+            };
+        }
+    }
+    
+    const user = users[Math.floor(Math.random() * users.length)];
+    let text;
+    
+    switch(type) {
+        case "normal":
+            text = `${user}: Привет!`;
+            break;
+        case "spam":
+            text = `${user}: Купите таблетки!`;
+            break;
+        case "offtop":
+            text = `${user}: Видели новый фильм?`;
+            break;
+        case "flood":
+            text = `${user}: ${"лол ".repeat(3)}`;
+            break;
+    }
+    
+    return {
+        text: text,
+        type: type,
+        y: 50 + 400 * Math.random(),
+        speed: 1 + 2 * Math.random(),
+        isSpecial: false,
+        specialScore: 0,
+        user: user
+    };
+}
+
+function updateStats() {
+    document.getElementById('highscore').textContent = highscore;
+    document.getElementById('messages').textContent = messagesProcessed;
+}
+
+function activateBot() {
+    const now = Date.now();
+    if(now < botCooldownEnd) return;
+    
+    botActive = true;
+    botEndTime = now + 15000;
+    botCooldownEnd = botEndTime + 10000;
+    
+    botInterval = setInterval(() => {
+        if(!botActive) return;
+        
+        messages = messages.filter(msg => {
+            if(msg.type !== "normal") {
+                score += 5;
+                messagesProcessed++;
+                return false;
+            }
+            return true;
+        });
+        updateStats();
+    }, 500);
+    
+    updateBotStatus();
+}
+
+function updateBotStatus() {
+    const now = Date.now();
+    const botBtn = document.getElementById('bot-btn');
+    const botActiveBar = document.getElementById('bot-active');
+    
+    if(botActive) {
+        if(now >= botEndTime) {
+            botActive = false;
+            clearInterval(botInterval);
+            botBtn.disabled = true;
+            botBtn.textContent = "Перезарядка";
+        } else {
+            const remaining = botEndTime - now;
+            botBtn.textContent = `Бот (${Math.ceil(remaining/1000)}с)`;
+            botActiveBar.style.width = `${(remaining/15000)*100}%`;
+        }
+    }
+    
+    if(now < botCooldownEnd) {
+        const cooldownRemaining = botCooldownEnd - now;
+        if(!botActive) {
+            botActiveBar.style.width = `${100-(cooldownRemaining/10000)*100}%`;
+        }
+        
+        if(cooldownRemaining <= 0) {
+            botBtn.disabled = false;
+            botBtn.textContent = "Бот (15с)";
+        } else if(!botActive) {
+            setTimeout(updateBotStatus, 100);
+        }
+    }
+    
+    if(botActive) {
+        setTimeout(updateBotStatus, 100);
+    }
+}
+
+function draw() {
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    messages.forEach(msg => {
+        ctx.fillStyle = "#E0E0E0";
+        ctx.fillRect(20, msg.y, canvas.width/dpr - 40, 30);
+        ctx.fillStyle = types[msg.type].color;
+        ctx.font = msg.isSpecial ? "bold 16px Arial" : "16px Arial";
+        ctx.fillText(msg.text, 25, msg.y + 20);
+    });
+    
+    document.getElementById("score").textContent = score;
+    document.getElementById("time").textContent = Math.max(0, Math.floor(time));
+}
+
+function update() {
+    if(!active) return;
+    
+    const now = Date.now();
+    if(now - lastMsg > 1500) {
+        messages.push(getMessage());
+        lastMsg = now;
+    }
+    
+    messages = messages.filter(msg => {
+        msg.y -= msg.speed;
+        return msg.y > -30;
+    });
+    
+    time -= 1/60;
+    if(time <= 0) {
+        active = false;
+        if(score > highscore) {
+            highscore = score;
+            localStorage.setItem('highscore', highscore);
+        }
+    }
+    
+    draw();
+    requestAnimationFrame(update);
+}
+
+document.querySelectorAll('.control-btn').forEach(btn => {
+    btn.addEventListener("click", () => {
+        if(!active) return;
+        
+        const action = btn.dataset.action;
+        messages.forEach((msg, i) => {
+            const correct = types[msg.type].action;
+            if(action === correct || (correct === null && action === 'ignore')) {
+                score += msg.isSpecial ? msg.specialScore : 10;
+                messagesProcessed++;
+            } else {
+                score -= 5;
+            }
+            messages.splice(i, 1);
+        });
+        updateStats();
+    });
+});
+
+canvas.addEventListener("click", e => {
+    if(!active) return;
+    
+    const touch = e.targetTouches ? e.targetTouches[0] : e;
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    messages.forEach((msg, i) => {
+        if(x > 20 && x < canvas.width/dpr - 20 && y > msg.y && y < msg.y + 30) {
+            messages.splice(i, 1);
+            score -= 2;
+            messagesProcessed++;
+            updateStats();
+        }
+    });
+});
+
+function resizeCanvas() {
+    const container = document.getElementById('game-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    ctx.scale(dpr, dpr);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+document.getElementById('bot-btn').addEventListener('click', activateBot);
+updateStats();
+update();
+</script>
+</body>
+  </html>
